@@ -61,7 +61,7 @@ def alerts(
         detections = engine.detect_brute_force(
             db, brute_force_threshold, brute_force_window_minutes, user.id
         )
-        detections.extend(engine.detect_suspicious_volume(db, volume_threshold, volume_window_minutes, user.id))
+        detections.extend(engine.detect_suspicious_ip(db, volume_window_minutes, user.id))
         return [alert.to_dict() for alert in detections]
 
     return _run(detect)

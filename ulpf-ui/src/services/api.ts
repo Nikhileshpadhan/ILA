@@ -6,34 +6,60 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('ulpf_access_token')
+  const token = localStorage.getItem('ila_access_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
 export type EventRecord = {
   event_id: string
-  timestamp: string
-  actor: Record<string, unknown>
-  event: Record<string, unknown>
-  source: Record<string, unknown>
-  processing: Record<string, unknown>
+  timestamp: string | null
+  ingested_at: string
+  source_name: string | null
+  source_type: string | null
+  source_ip: string | null
+  user: string | null
+  action: string | null
+  status: string | null
+  severity: string | null
+  processing_method: string
   raw_event: string
 }
 
 export type SummaryStats = {
+  hours: number
   total_events: number
+  error_rate_percent: number
+  throughput: {
+    logs_per_second: number
+    logs_per_minute: number
+    logs_per_hour: number
+  }
   by_source_type: Record<string, number>
   by_severity: Record<string, number>
-  success_failure: { success: number; failure: number; ratio: number | null }
+  success_failure: { success: number; failure: number }
 }
 
 export type TimeSeriesPoint = { timestamp: string; count: number }
 export type EntityCount = { entity: string; count: number }
 export type TopEntities = {
+  hours: number
+  limit: number
   top_source_ips: EntityCount[]
   top_users: EntityCount[]
+  most_active_systems: EntityCount[]
   top_actions: EntityCount[]
+}
+
+export type SecurityAlert = {
+  alert_id: string
+  rule_name: string
+  severity: string
+  entity_ip: string | null
+  entity_user: string | null
+  matched_events_count: number
+  details: string
+  timestamp: string
 }
 
 export type PaginatedEvents = {
@@ -65,13 +91,7 @@ export type Incident = {
   severity: string
 }
 
-export type ChatResult = {
-  event_id: string
-  timestamp: string
-  source_type: string
-  normalized_event: Record<string, unknown>
-  raw_event: string
-}
+export type ChatResult = EventRecord
 
 export type ChatResponse = {
   message: string
@@ -124,6 +144,11 @@ export async function getMappings() {
 
 export async function getIncidents() {
   const { data } = await api.get<Incident[]>('/api/v1/analytics/incidents')
+  return data
+}
+
+export async function getAlerts() {
+  const { data } = await api.get<SecurityAlert[]>('/api/v1/analytics/alerts')
   return data
 }
 

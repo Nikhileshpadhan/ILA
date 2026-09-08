@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Activity, Database, ShieldAlert, Sparkles, TrendingDown, Users } from 'lucide-react'
+import { Activity, ShieldAlert, Sparkles, AlertTriangle, Users } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -19,11 +19,11 @@ import {
 import {
   getAnalyticsSummary,
   getEvents,
-  getIncidents,
+  getAlerts,
   getTimeSeries,
   getTopEntities,
   type EventRecord,
-  type Incident,
+  type SecurityAlert,
   type SummaryStats,
   type TimeSeriesPoint,
   type TopEntities,
@@ -36,16 +36,11 @@ const tooltipStyle = {
   color: '#e4e4e7',
   borderRadius: '8px',
 }
-const sourceColors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4']
+const actionColors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#e11d48']
 const formatNumber = (value: number) => new Intl.NumberFormat('en-US').format(value)
 
 function statusOf(event: EventRecord) {
-  return String(event.event.status ?? '').toLowerCase()
-}
-
-function methodOf(event: EventRecord) {
-  const method = String(event.processing.method ?? '').toLowerCase()
-  return method.includes('deterministic') ? 'Deterministic' : 'ML-Assisted'
+  return String(event.status ?? '').toLowerCase()
 }
 
 /* ---------- Stagger variants ---------- */
@@ -90,32 +85,29 @@ export function Dashboard() {
   const [summary, setSummary] = useState<SummaryStats | null>(null)
   const [series, setSeries] = useState<TimeSeriesPoint[]>([])
   const [entities, setEntities] = useState<TopEntities | null>(null)
-  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [alerts, setAlerts] = useState<SecurityAlert[]>([])
   const [events, setEvents] = useState<EventRecord[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([getAnalyticsSummary(), getTimeSeries(), getTopEntities(), getIncidents(), getEvents({ limit: 500 })])
-      .then(([nextSummary, nextSeries, nextEntities, nextIncidents, nextEvents]) => {
+    Promise.all([getAnalyticsSummary(), getTimeSeries(), getTopEntities(), getAlerts(), getEvents({ limit: 500 })])
+      .then(([nextSummary, nextSeries, nextEntities, nextAlerts, nextEvents]) => {
         setSummary(nextSummary)
         setSeries(nextSeries)
         setEntities(nextEntities)
-        setIncidents(nextIncidents)
+        setAlerts(nextAlerts)
         setEvents(nextEvents.items)
       })
       .catch(() => setError('Could not reach the local analytics API. Start the backend on port 8000.'))
   }, [])
 
-  const sourceData = useMemo(() => Object.entries(summary?.by_source_type ?? {}).map(([name, value]) => ({ name, value })), [summary])
-  const methodData = useMemo(() => {
-    const counts = events.reduce<Record<string, number>>((result, event) => { const method = methodOf(event); result[method] = (result[method] ?? 0) + 1; return result }, {})
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [events])
+  const actionData = useMemo(() => entities?.top_actions.map(a => ({ name: a.entity, value: a.count })) ?? [], [entities])
+  
   const chartData = useMemo(() => {
     const interval = 15 * 60 * 1000
     const statuses = new Map<number, { successful: number; failed: number }>()
     events.forEach((event) => {
-      const timestamp = new Date(event.timestamp).getTime()
+      const timestamp = new Date(event.timestamp || event.ingested_at || Date.now()).getTime()
       const bucket = Math.floor(timestamp / interval) * interval
       const current = statuses.get(bucket) ?? { successful: 0, failed: 0 }
       if (['success', 'succeeded', 'ok', 'passed'].includes(statusOf(event))) current.successful += 1
@@ -132,9 +124,9 @@ export function Dashboard() {
 
   const cards = [
     { label: 'Total events', value: summary ? formatNumber(summary.total_events) : '--', icon: Activity, accent: 'text-emerald-400', bg: 'bg-emerald-500/10', detail: 'last 24 hours' },
-    { label: 'Active sources', value: summary ? Object.keys(summary.by_source_type).length : '--', icon: Database, accent: 'text-sky-400', bg: 'bg-sky-500/10', detail: 'formats observed' },
-    { label: 'Failure ratio', value: summary?.success_failure.ratio == null ? '--' : `${Math.round((1 - summary.success_failure.ratio) * 100)}%`, icon: TrendingDown, accent: 'text-amber-400', bg: 'bg-amber-500/10', detail: 'of known outcomes' },
-    { label: 'Security incidents', value: incidents.length, icon: ShieldAlert, accent: 'text-rose-400', bg: 'bg-rose-500/10', detail: 'cross-source correlations' },
+    { label: 'Ingestion rate', value: summary ? `${summary.throughput.logs_per_second} /s` : '--', icon: Activity, accent: 'text-sky-400', bg: 'bg-sky-500/10', detail: 'logs per second' },
+    { label: 'Global Error Rate', value: summary ? `${summary.error_rate_percent}%` : '--', icon: AlertTriangle, accent: 'text-amber-400', bg: 'bg-amber-500/10', detail: 'failed / total' },
+    { label: 'Security incidents', value: alerts.length, icon: ShieldAlert, accent: 'text-rose-400', bg: 'bg-rose-500/10', detail: 'active alerts' },
   ]
 
   return (
@@ -150,7 +142,7 @@ export function Dashboard() {
           <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400">
             <Sparkles size={13} /> Security operations center
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Command overview</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Ido Log Analyzer (ILA)</h1>
           <p className="mt-1.5 text-xs text-zinc-500">A live read on telemetry health, threat pressure, and mapping behavior.</p>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-zinc-500">
@@ -191,7 +183,7 @@ export function Dashboard() {
         ))}
       </motion.section>
 
-      {/* Charts Row 1 */}
+      {/* Charts Row 2 */}
       <motion.section variants={sectionVariants} initial="hidden" animate="visible" className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <ChartPanel title="Event Throughput & Status" eyebrow="Timeline / 15-minute buckets" delay={0.2}>
           <ResponsiveContainer width="100%" height={300}>
@@ -206,22 +198,22 @@ export function Dashboard() {
             </AreaChart>
           </ResponsiveContainer>
         </ChartPanel>
-        <ChartPanel title="Log Format Distribution" eyebrow="Source mix" delay={0.35}>
+        <ChartPanel title="Most Common Event Types" eyebrow="Actions mix" delay={0.35}>
           <div className="relative">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={sourceData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={96} paddingAngle={3} stroke="#18181b" strokeWidth={3} animationDuration={1200} animationEasing="ease-out">
-                  {sourceData.map((entry, index) => <Cell key={entry.name} fill={sourceColors[index % sourceColors.length]} />)}
+                <Pie data={actionData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={96} paddingAngle={3} stroke="#18181b" strokeWidth={3} animationDuration={1200} animationEasing="ease-out">
+                  {actionData.map((entry, index) => <Cell key={entry.name} fill={actionColors[index % actionColors.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend iconType="circle" wrapperStyle={{ color: '#a1a1aa', fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
-            {sourceData.length > 0 && (
+            {actionData.length > 0 && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-white">{summary?.total_events ?? 0}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-zinc-600">events</div>
+                  <div className="text-2xl font-semibold text-white">{actionData.reduce((a, b) => a + b.value, 0)}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-zinc-600">actions</div>
                 </div>
               </div>
             )}
@@ -229,14 +221,14 @@ export function Dashboard() {
         </ChartPanel>
       </motion.section>
 
-      {/* Charts Row 2 */}
+      {/* Charts Row 3 */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5 }}
         className="grid gap-4 xl:grid-cols-3"
       >
-        <ChartPanel title="Top Source IPs" eyebrow="Threat intelligence" delay={0.5}>
+        <ChartPanel title="Top Source IPs" eyebrow="Actor Analysis" delay={0.5}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={entities?.top_source_ips ?? []} layout="vertical" margin={{ top: 8, right: 14, left: 10, bottom: 8 }}>
               <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} allowDecimals={false} />
@@ -246,7 +238,7 @@ export function Dashboard() {
             </BarChart>
           </ResponsiveContainer>
         </ChartPanel>
-        <ChartPanel title="Top Targeted Users" eyebrow="Identity pressure" delay={0.6}>
+        <ChartPanel title="Top Users" eyebrow="Identity pressure" delay={0.6}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={entities?.top_users ?? []} layout="vertical" margin={{ top: 8, right: 14, left: 10, bottom: 8 }}>
               <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} allowDecimals={false} />
@@ -256,26 +248,50 @@ export function Dashboard() {
             </BarChart>
           </ResponsiveContainer>
         </ChartPanel>
-        <ChartPanel title="Pipeline Telemetry" eyebrow="Engine behavior" delay={0.7}>
-          <div className="relative">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={methodData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={96} paddingAngle={3} stroke="#18181b" strokeWidth={3} animationDuration={1200}>
-                  {methodData.map((entry) => <Cell key={entry.name} fill={entry.name === 'Deterministic' ? '#10b981' : '#06b6d4'} />)}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend iconType="circle" wrapperStyle={{ color: '#a1a1aa', fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-            {methodData.length > 0 && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-2xl font-semibold text-white">{events.length}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-zinc-600">processed</div>
+        <ChartPanel title="Most Active Systems" eyebrow="Infrastructure" delay={0.7}>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={entities?.most_active_systems ?? []} layout="vertical" margin={{ top: 8, right: 14, left: 10, bottom: 8 }}>
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} allowDecimals={false} />
+              <YAxis type="category" dataKey="entity" width={96} axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10 }} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="count" name="Events" fill="#3b82f6" radius={[0, 3, 3, 0]} barSize={16} animationDuration={1000} animationBegin={300} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </motion.section>
+
+      {/* Charts Row 4: Threat Intelligence */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.8 }}
+      >
+        <ChartPanel title="Active Security Alerts" eyebrow="Threat Intelligence" delay={0.8}>
+          {alerts.length === 0 ? (
+            <div className="flex h-32 items-center justify-center text-sm text-zinc-500">No active threats detected.</div>
+          ) : (
+            <div className="space-y-3">
+              {alerts.map((alert) => (
+                <div key={alert.alert_id} className="flex flex-col gap-2 rounded-lg border border-zinc-800/60 bg-zinc-900/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs font-semibold text-rose-400 border border-rose-500/20">{alert.rule_name}</span>
+                      <span className="text-sm font-semibold text-white">{alert.details}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-4 text-xs text-zinc-500">
+                      {alert.entity_ip && <span>IP: {alert.entity_ip}</span>}
+                      {alert.entity_user && <span>User: {alert.entity_user}</span>}
+                      <span>{new Date(alert.timestamp).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:items-end">
+                    <span className="text-xs uppercase tracking-wider text-zinc-600">Events</span>
+                    <span className="text-lg font-semibold text-white">{alert.matched_events_count}</span>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </ChartPanel>
       </motion.section>
 

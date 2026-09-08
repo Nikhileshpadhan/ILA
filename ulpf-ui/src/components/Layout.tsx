@@ -27,7 +27,7 @@ const navigation = [
 ]
 
 /* ---------- Animated SVG Logo ---------- */
-function UlpfLogo({ size = 32 }: { size?: number }) {
+function IlaLogo({ size = 32 }: { size?: number }) {
   return (
     <motion.svg
       width={size}
@@ -133,7 +133,7 @@ export function Layout() {
       >
         {/* Logo area */}
         <div className="flex items-center gap-3 border-b border-zinc-800/80 px-5 py-6">
-          <UlpfLogo size={collapsed ? 28 : 32} />
+          <IlaLogo size={collapsed ? 28 : 32} />
           <AnimatePresence>
             {!collapsed && (
               <motion.div
@@ -143,7 +143,7 @@ export function Layout() {
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden whitespace-nowrap"
               >
-                <p className="text-sm font-semibold tracking-[0.18em] text-white">ULPF</p>
+                <p className="text-sm font-semibold tracking-[0.18em] text-white">ILA</p>
                 <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-zinc-500">Core observatory</p>
               </motion.div>
             )}
@@ -236,9 +236,9 @@ export function Layout() {
             >
               <div className="flex items-center justify-between border-b border-zinc-800/80 pb-6">
                 <div className="flex items-center gap-3">
-                  <UlpfLogo />
+                  <IlaLogo />
                   <div>
-                    <p className="text-sm font-semibold tracking-[0.18em] text-white">ULPF</p>
+                    <p className="text-sm font-semibold tracking-[0.18em] text-white">ILA</p>
                     <p className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-zinc-500">Core observatory</p>
                   </div>
                 </div>
@@ -270,7 +270,7 @@ export function Layout() {
             >
               <Menu size={20} />
             </button>
-            <span className="hidden text-xs text-zinc-600 md:block">Universal Log Pre-processing Framework</span>
+            <span className="hidden text-xs text-zinc-600 md:block">Ido Log Analyzer</span>
           </div>
           <div className="flex items-center gap-3 text-xs text-zinc-500">
             <span className="size-1.5 rounded-full bg-emerald-400" />

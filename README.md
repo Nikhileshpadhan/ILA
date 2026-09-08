@@ -1,6 +1,6 @@
-# ULPF (Universal Log Processing Framework)
+# Ido Log Analyzer (ILA)
 
-ULPF is a log processing engine that consists of a Python-based FastAPI backend and a Vite-based frontend. The framework is designed to ingest, process, and analyze logs using a pipeline, storing them in a SQLite database.
+ILA is a log processing engine that consists of a Python-based FastAPI backend and a Vite-based frontend. The framework is designed to ingest, process, and analyze logs using a pipeline, storing them in a SQLite database.
 
 ## Project Structure
 
@@ -8,10 +8,10 @@ ULPF is a log processing engine that consists of a Python-based FastAPI backend 
 *   **`ulpf/`**: The core log processing pipeline engine.
 *   **`ulpf-ui/`**: The frontend application built with Vite and React (or similar).
 *   **`server.py`**: The FastAPI application entry point for the backend.
-*   **`main.py`**: Interactive entry point for the ULPF core engine (can be run directly to test log processing).
+*   **`main.py`**: Interactive entry point for the ILA core engine (can be run directly to test log processing).
 *   **`run.py`**: A convenient script to start both the backend and frontend servers concurrently.
 *   **`requirements.txt`**: Python dependencies for the backend.
-*   **`ulpf.db`**: SQLite database file.
+*   **`ila.db`**: SQLite database file.
 
 ## Prerequisites
 
@@ -72,7 +72,7 @@ npm run dev
 
 ## Demo Users
 
-The application is seeded with several demo users for testing purposes. (Check `server.py` for details, e.g., `demo@ulpf.local` / `demo12345`).
+The application is seeded with several demo users for testing purposes. (Check `server.py` for details, e.g., `demo@ila.local` / `demo12345`).
 
 ## Core Technologies
 

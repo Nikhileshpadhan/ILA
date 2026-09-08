@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronRight, Filter, RefreshCw, Search } from 'lucide-react'
 import { getEvents, type EventRecord } from '../services/api'
 
-const value = (record: Record<string, unknown>, key: string) => String(record[key] ?? '—')
 const date = (timestamp: string) => new Date(timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })
 
 const rowVariants = {
@@ -100,8 +99,8 @@ export function LogExplorer() {
         ) : (
           events.map((event, index) => {
             const open = expanded === event.event_id
-            const status = value(event.event, 'status')
-            const severity = value(event.event, 'severity')
+            const status = event.status ?? '—'
+            const severity = event.severity ?? '—'
 
             return (
               <motion.div
@@ -119,12 +118,12 @@ export function LogExplorer() {
                 >
                   <span className="flex items-center gap-2 text-xs text-zinc-400">
                     <span className="text-zinc-600">{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
-                    {date(event.timestamp)}
+                    {date(event.timestamp ?? event.ingested_at)}
                   </span>
                   <span className="truncate font-mono text-xs text-zinc-500">{event.event_id}</span>
-                  <span className="text-xs text-zinc-300">{value(event.source, 'type') || value(event.processing, 'parser')}</span>
-                  <span className="font-mono text-xs text-zinc-400">{value(event.actor, 'source_ip')}</span>
-                  <span className="text-sm text-zinc-200">{value(event.event, 'action')}</span>
+                  <span className="text-xs text-zinc-300">{event.source_type ?? '—'}</span>
+                  <span className="font-mono text-xs text-zinc-400">{event.source_ip ?? '—'}</span>
+                  <span className="text-sm text-zinc-200">{event.action ?? '—'}</span>
                   <span className={`w-fit rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider ${status.toLowerCase().includes('fail') ? 'bg-rose-500/10 text-rose-300' : 'bg-emerald-500/10 text-emerald-300'}`}>{status}</span>
                   <span className={`text-xs uppercase ${severity === 'high' || severity === 'critical' ? 'text-rose-400' : severity === 'medium' ? 'text-amber-400' : 'text-zinc-500'}`}>{severity}</span>
                 </button>
@@ -148,7 +147,7 @@ export function LogExplorer() {
                           <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-black p-4 font-mono text-xs leading-6 text-emerald-300">{JSON.stringify(event, null, 2)}</pre>
                         </div>
                         <div className="lg:col-span-2">
-                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">processing: {value(event.processing, 'method')}</span>
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">processing: {event.processing_method}</span>
                         </div>
                       </div>
                     </motion.div>

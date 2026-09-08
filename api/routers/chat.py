@@ -70,12 +70,17 @@ def _field(event: dict[str, Any], section: str, name: str) -> str | None:
 
 
 def _result(row: DBEvent) -> dict[str, Any]:
-    normalized = row.normalized_event
     return {
         "event_id": row.event_id,
-        "timestamp": row.timestamp,
+        "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+        "source_name": row.source_name,
         "source_type": row.source_type,
-        "normalized_event": normalized,
+        "source_ip": row.source_ip,
+        "user": row.user,
+        "action": row.action,
+        "status": row.status,
+        "severity": row.severity,
+        "processing_method": row.processing_method,
         "raw_event": row.raw_event,
     }
 
@@ -91,7 +96,12 @@ def _analyze_logs(query: str, logs: list[dict[str, Any]]) -> str:
     logs_json = json.dumps([{
         "timestamp": str(l.get("timestamp", "")),
         "source_type": l.get("source_type"),
-        "normalized_event": l.get("normalized_event")
+        "source_name": l.get("source_name"),
+        "source_ip": l.get("source_ip"),
+        "user": l.get("user"),
+        "action": l.get("action"),
+        "status": l.get("status"),
+        "severity": l.get("severity")
     } for l in limited_logs])
 
     system_prompt = (
@@ -129,13 +139,12 @@ def ask_chat(
     ).all()
     results: list[dict[str, Any]] = []
     for row in rows:
-        normalized = row.normalized_event
         candidates = {
-            "source_ip": _field(normalized, "actor", "source_ip"),
-            "user": _field(normalized, "actor", "user"),
-            "action": _field(normalized, "event", "action"),
-            "status": _field(normalized, "event", "status"),
-            "severity": _field(normalized, "event", "severity") or row.severity,
+            "source_ip": row.source_ip,
+            "user": row.user,
+            "action": row.action,
+            "status": row.status,
+            "severity": row.severity,
         }
         if all(not expected or (candidates[key] is not None and candidates[key].lower() == expected.lower()) for key, expected in filters.items()):
             results.append(_result(row))

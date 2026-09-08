@@ -17,11 +17,16 @@ class BatchLogIngestRequest(BaseModel):
 
 class EventResponse(BaseModel):
     event_id: str
-    timestamp: str
-    actor: dict[str, Any]
-    event: dict[str, Any]
-    source: dict[str, Any]
-    processing: dict[str, Any]
+    timestamp: str | None = None
+    ingested_at: str
+    source_name: str | None = None
+    source_type: str | None = None
+    source_ip: str | None = None
+    user: str | None = None
+    action: str | None = None
+    status: str | None = None
+    severity: str | None = None
+    processing_method: str
     raw_event: str
 
 

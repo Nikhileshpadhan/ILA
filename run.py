@@ -4,7 +4,7 @@ import os
 import signal
 
 def main():
-    print("Starting ULPF Backend and Frontend concurrently...")
+    print("Starting ILA Backend and Frontend concurrently...")
     
     root_dir = os.path.dirname(os.path.abspath(__file__))
     

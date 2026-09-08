@@ -16,8 +16,20 @@ router = APIRouter(prefix="/api/v1/events", tags=["events"])
 
 
 def _event_response(row: DBEvent) -> EventResponse:
-    normalized = row.normalized_event
-    return EventResponse(**normalized)
+    return EventResponse(
+        event_id=row.event_id,
+        timestamp=row.timestamp.isoformat() if row.timestamp else None,
+        ingested_at=row.ingested_at.isoformat() if row.ingested_at else None,
+        source_name=row.source_name,
+        source_type=row.source_type,
+        source_ip=row.source_ip,
+        user=row.user,
+        action=row.action,
+        status=row.status,
+        severity=row.severity,
+        processing_method=row.processing_method,
+        raw_event=row.raw_event
+    )
 
 
 @router.get("/", response_model=PaginatedEventsResponse)
@@ -45,15 +57,15 @@ def list_events(
     if user_query and ip and user_query == ip:
         filters.append(
             or_(
-                DBEvent.normalized_event["actor"]["user"].as_string() == user_query,
-                DBEvent.normalized_event["actor"]["source_ip"].as_string() == ip
+                DBEvent.user == user_query,
+                DBEvent.source_ip == ip
             )
         )
     else:
         if user_query:
-            filters.append(DBEvent.normalized_event["actor"]["user"].as_string() == user_query)
+            filters.append(DBEvent.user == user_query)
         if ip:
-            filters.append(DBEvent.normalized_event["actor"]["source_ip"].as_string() == ip)
+            filters.append(DBEvent.source_ip == ip)
             
     if start_time:
         filters.append(DBEvent.timestamp >= start_time)
@@ -75,13 +87,20 @@ def get_event(event_id: str, db: Session = Depends(get_db), user: DBUser = Depen
     row = db.scalar(select(DBEvent).where(DBEvent.event_id == event_id, DBEvent.user_id == user.id))
     if row is None:
         raise HTTPException(status_code=404, detail="Event not found")
-    normalized = row.normalized_event
     return EventDetailResponse(
-        **normalized,
-        id=row.id,
+        event_id=row.event_id,
+        timestamp=row.timestamp.isoformat() if row.timestamp else None,
+        ingested_at=row.ingested_at.isoformat() if row.ingested_at else None,
+        source_name=row.source_name,
         source_type=row.source_type,
+        source_ip=row.source_ip,
+        user=row.user,
+        action=row.action,
+        status=row.status,
         severity=row.severity,
         processing_method=row.processing_method,
+        raw_event=row.raw_event,
+        id=row.id,
         mapping_version=row.mapping_version,
         created_at=row.created_at,
     )

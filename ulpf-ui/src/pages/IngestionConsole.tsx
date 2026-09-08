@@ -53,7 +53,7 @@ export function IngestionConsole() {
   const process = async () => {
     if (!log.trim()) return
     setLoading(true)
-    revealOutput('> initializing ULPF pipeline\n> detecting source signature...')
+    revealOutput('> initializing ILA pipeline\n> detecting source signature...')
     try {
       const event: EventRecord = await ingestLog(log)
       revealOutput(JSON.stringify(event, null, 2))
@@ -172,7 +172,7 @@ export function IngestionConsole() {
               />
               <span className="size-2 rounded-full bg-amber-400" />
               <span className="size-2 rounded-full bg-rose-400" />
-              <span className="ml-2 font-mono text-xs text-zinc-500">ulpf / normalized-event</span>
+              <span className="ml-2 font-mono text-xs text-zinc-500">ila / normalized-event</span>
             </div>
             <FileUp size={15} className="text-zinc-700" />
           </div>

@@ -7,7 +7,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
-from ulpf.models import UniversalEvent
+from ila_core.schema import UniversalEvent
+from ila_core.pipeline import LogPipeline
 
 from ..auth import get_current_user
 from ..database import get_db
@@ -21,37 +22,29 @@ from ..schemas import (
 
 router = APIRouter(prefix="/api/v1/ingest", tags=["ingest"])
 
-
 def _event_row(event: UniversalEvent, user_id: int) -> DBEvent:
-    normalized = event.to_dict()
-    timestamp = datetime.fromisoformat(event.timestamp.replace("Z", "+00:00"))
-    processing = event.processing
-    severity = str(event.event.get("severity") or "info")
+    timestamp = datetime.fromisoformat(event.timestamp.replace("Z", "+00:00")) if event.timestamp else None
     return DBEvent(
         user_id=user_id,
         event_id=event.event_id,
         timestamp=timestamp,
-        source_type=str(processing.get("parser", "Unstructured")),
-        severity=severity,
+        source_name=event.source_name,
+        source_type=event.source_type,
+        source_ip=event.source_ip,
+        user=event.user,
+        action=event.action,
+        status=event.status,
+        severity=event.severity,
         raw_event=event.raw_event,
-        normalized_event=normalized,
-        processing_method=str(processing.get("method", "unknown")),
-        mapping_version=str(processing.get("mapping_version", "")),
+        processing_method=event.processing_method,
+        mapping_version=""
     )
-
 
 def _response(event: UniversalEvent) -> EventResponse:
     return EventResponse(**event.to_dict())
 
-
-def _pipeline(request: Request, user_id: int) -> Any:
+def _pipeline(request: Request, user_id: int) -> LogPipeline:
     return request.app.state.get_pipeline(user_id)
-
-
-def _process_one(pipeline: Any, raw_log: str) -> UniversalEvent:
-    if not raw_log.strip():
-        raise ValueError("Log cannot be empty")
-    return pipeline.process(raw_log)
 
 
 @router.post("/single", status_code=status.HTTP_201_CREATED)
@@ -61,31 +54,39 @@ def ingest_single(
     db: Session = Depends(get_db),
     user: DBUser = Depends(get_current_user),
 ) -> Any:
-    lines = [line for line in payload.log.splitlines() if line.strip()]
-    if len(lines) > 1:
-        return ingest_batch(BatchLogIngestRequest(logs=lines), request, db, user)
-
+    if not payload.log.strip():
+        raise HTTPException(status_code=400, detail="Log cannot be empty")
+        
     try:
-        event = _process_one(_pipeline(request, user.id), lines[0] if lines else payload.log)
+        pipeline = _pipeline(request, user.id)
+        events = pipeline.process_payload(payload.log)
+        
+        if not events:
+            raise ValueError("No events parsed")
+            
+        # Single log might chunk into multiple
+        if len(events) > 1:
+            rows = []
+            event_ids = []
+            for event in events:
+                rows.append(_event_row(event, user.id))
+                event_ids.append(event.event_id)
+            db.add_all(rows)
+            db.commit()
+            return BatchIngestResponse(
+                processed=len(rows),
+                failed=0,
+                sample_event_ids=event_ids[:10],
+            )
+
+        event = events[0]
         db.add(_event_row(event, user.id))
         db.commit()
         return _response(event)
     except Exception as error:
         db.rollback()
-        raise HTTPException(status_code=422, detail=f"Unable to process log: {error}") from error
-
-
-def _batch_events(pipeline: Any, logs: Iterable[str], user_id: int) -> tuple[list[DBEvent], list[str]]:
-    rows: list[DBEvent] = []
-    event_ids: list[str] = []
-    for raw_log in logs:
-        try:
-            event = _process_one(pipeline, raw_log)
-            rows.append(_event_row(event, user_id))
-            event_ids.append(event.event_id)
-        except Exception:
-            continue
-    return rows, event_ids
+        import traceback; err = traceback.format_exc()
+        raise HTTPException(status_code=422, detail=f"Unable to process log: {error}\n{err}") from error
 
 
 @router.post("/batch", response_model=BatchIngestResponse, status_code=status.HTTP_201_CREATED)
@@ -95,13 +96,27 @@ def ingest_batch(
     db: Session = Depends(get_db),
     user: DBUser = Depends(get_current_user),
 ) -> BatchIngestResponse:
-    rows, event_ids = _batch_events(_pipeline(request, user.id), payload.logs, user.id)
+    pipeline = _pipeline(request, user.id)
+    rows = []
+    event_ids = []
+    failed_count = 0
+    
+    for raw_log in payload.logs:
+        try:
+            events = pipeline.process_payload(raw_log)
+            for event in events:
+                rows.append(_event_row(event, user.id))
+                event_ids.append(event.event_id)
+        except Exception:
+            failed_count += 1
+            
     if rows:
         db.add_all(rows)
         db.commit()
+        
     return BatchIngestResponse(
         processed=len(rows),
-        failed=len(payload.logs) - len(rows),
+        failed=failed_count,
         sample_event_ids=event_ids[:10],
     )
 
@@ -116,14 +131,28 @@ async def ingest_upload(
     filename = (file.filename or "").lower()
     if not filename.endswith((".log", ".txt", ".json", ".csv")):
         raise HTTPException(status_code=415, detail="Supported files: .log, .txt, .json, .csv")
+        
     content = (await file.read()).decode("utf-8", errors="replace")
-    logs = [content] if filename.endswith(".json") else [line for line in content.splitlines() if line.strip()]
-    rows, event_ids = _batch_events(_pipeline(request, user.id), logs, user.id)
+    
+    pipeline = _pipeline(request, user.id)
+    rows = []
+    event_ids = []
+    failed_count = 0
+    
+    try:
+        events = pipeline.process_payload(content)
+        for event in events:
+            rows.append(_event_row(event, user.id))
+            event_ids.append(event.event_id)
+    except Exception:
+        failed_count += 1
+        
     if rows:
         db.add_all(rows)
         db.commit()
+        
     return BatchIngestResponse(
         processed=len(rows),
-        failed=len(logs) - len(rows),
+        failed=failed_count,
         sample_event_ids=event_ids[:10],
     )

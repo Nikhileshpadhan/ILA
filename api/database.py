@@ -5,7 +5,11 @@ from collections.abc import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///./ulpf.db"
+DATABASE_URL = "sqlite:///./ila.db"
+
+# IMPORTANT: The database schema has drastically changed to a flat architecture.
+# Please delete the existing `sqlite.db` or `ila.db` file before restarting the server 
+# so SQLAlchemy can cleanly rebuild the tables on the next startup.
 
 engine = create_engine(
     DATABASE_URL,

@@ -312,7 +312,7 @@ export function Landing() {
             >
               <ShieldCheck size={20} />
             </motion.div>
-            <span className="text-sm font-semibold tracking-widest text-white">ULPF</span>
+            <span className="text-sm font-semibold tracking-widest text-white">ILA</span>
           </div>
           <div className="flex items-center gap-6 text-sm">
             <Link to="/login" className="text-zinc-400 transition hover:text-white font-medium">
@@ -351,7 +351,7 @@ export function Landing() {
             transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
             className="max-w-5xl text-5xl font-bold tracking-tight text-white md:text-7xl lg:text-8xl leading-tight"
           >
-            Enterprise-Grade Log Normalization.{' '}
+            Ido Log Analyzer.{' '}
             <span className="text-emerald-400">Zero Data Loss.</span>
           </motion.h1>
 
@@ -427,7 +427,7 @@ export function Landing() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-10 text-sm text-zinc-500">
           <div className="flex items-center gap-3">
             <ShieldCheck size={18} className="text-emerald-500" />
-            <span className="font-medium text-zinc-300">ULPF Enterprise</span>
+            <span className="font-medium text-zinc-300">ILA Enterprise</span>
           </div>
           <span className="flex items-center gap-1">
             Built for scale <ChevronRight size={14} />

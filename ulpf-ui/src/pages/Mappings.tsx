@@ -32,7 +32,7 @@ export function Mappings() {
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-400">Learning layer</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Mapping intelligence</h1>
-          <p className="mt-2 text-sm text-zinc-500">The structures ULPF recognizes and the fields it learned.</p>
+          <p className="mt-2 text-sm text-zinc-500">The structures ILA recognizes and the fields it learned.</p>
         </div>
         <span className="flex items-center gap-2 text-xs text-zinc-600">
           <RefreshCw size={14} /> {mappings.length} signatures
